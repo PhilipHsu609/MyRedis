@@ -1,0 +1,8 @@
+/.cache/
+/.vscode/
+/build/
+/bin/
+/cmake/
+
+*.o
+/build.sh
