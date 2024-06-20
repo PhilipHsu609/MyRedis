@@ -28,6 +28,7 @@ struct Connection {
     State state = State::REQUEST;
     // Reading
     std::size_t rbuf_size = 0;
+    std::size_t read_size = 0;
     std::vector<std::byte> rbuf;
     // Writing
     std::size_t wbuf_size = 0;
@@ -105,13 +106,13 @@ void state_res(std::unique_ptr<Connection> &conn) {
 }
 
 bool try_one_request(std::unique_ptr<Connection> &conn) {
-    if (conn->rbuf_size < COMMAND_SIZE) {
+    if (conn->rbuf_size < conn->read_size + COMMAND_SIZE) {
         // Not enough data in the buffer
         return false;
     }
 
     std::size_t len = 0;
-    std::memcpy(&len, conn->rbuf.data(), COMMAND_SIZE);
+    std::memcpy(&len, conn->rbuf.data() + conn->read_size, COMMAND_SIZE);
 
     if (len > BUFSIZ) {
         fmt::print(stderr, "invalid length: {}\n", len);
@@ -119,7 +120,7 @@ bool try_one_request(std::unique_ptr<Connection> &conn) {
         return false;
     }
 
-    if (conn->rbuf_size < COMMAND_SIZE + len) {
+    if (conn->rbuf_size < conn->read_size + COMMAND_SIZE + len) {
         // Not enough data in the buffer
         return false;
     }
@@ -128,15 +129,11 @@ bool try_one_request(std::unique_ptr<Connection> &conn) {
 
     // Prepare echoing response
     std::memcpy(conn->wbuf.data(), &len, COMMAND_SIZE);
-    std::memcpy(conn->wbuf.data() + COMMAND_SIZE, conn->rbuf.data() + COMMAND_SIZE, len);
+    std::memcpy(conn->wbuf.data() + COMMAND_SIZE,
+                conn->rbuf.data() + conn->read_size + COMMAND_SIZE, len);
     conn->wbuf_size = COMMAND_SIZE + len;
 
-    // Remove the request from the buffer
-    const std::size_t remain = conn->rbuf_size - COMMAND_SIZE - len;
-    if (remain > 0) {
-        std::memmove(conn->rbuf.data(), conn->rbuf.data() + COMMAND_SIZE + len, remain);
-    }
-    conn->rbuf_size = remain;
+    conn->read_size += COMMAND_SIZE + len;
 
     // Change the state to response
     conn->state = State::RESPONSE;
@@ -146,6 +143,14 @@ bool try_one_request(std::unique_ptr<Connection> &conn) {
 }
 
 bool try_fill_buffer(std::unique_ptr<Connection> &conn) {
+    if (conn->read_size > 0) {
+        // Remove handled requests from the buffer
+        const std::size_t remain = conn->rbuf_size - conn->read_size;
+        std::memmove(conn->rbuf.data(), conn->rbuf.data() + conn->read_size, remain);
+        conn->rbuf_size = remain;
+        conn->read_size = 0;
+    }
+
     ssize_t n = 0;
 
     do {
@@ -168,8 +173,8 @@ bool try_fill_buffer(std::unique_ptr<Connection> &conn) {
 
     conn->rbuf_size += n;
 
+    // Process requests one by one
     while (try_one_request(conn)) {
-        // Process requests one by one
     }
 
     return conn->state == State::REQUEST;
