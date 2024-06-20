@@ -127,17 +127,20 @@ bool try_one_request(std::unique_ptr<Connection> &conn) {
 
     dbg("Received length:", len, "message:", conn->rbuf);
 
+    // Flush the write buffer if it's full
+    if (conn->wbuf_size + COMMAND_SIZE + len > conn->wbuf.size()) {
+        conn->state = State::RESPONSE;
+        state_res(conn);
+    }
+
     // Prepare echoing response
-    std::memcpy(conn->wbuf.data(), &len, COMMAND_SIZE);
-    std::memcpy(conn->wbuf.data() + COMMAND_SIZE,
+    // Pipe the responses to the write buffer
+    std::memcpy(conn->wbuf.data() + conn->wbuf_size, &len, COMMAND_SIZE);
+    std::memcpy(conn->wbuf.data() + conn->wbuf_size + COMMAND_SIZE,
                 conn->rbuf.data() + conn->read_size + COMMAND_SIZE, len);
-    conn->wbuf_size = COMMAND_SIZE + len;
+    conn->wbuf_size += COMMAND_SIZE + len;
 
     conn->read_size += COMMAND_SIZE + len;
-
-    // Change the state to response
-    conn->state = State::RESPONSE;
-    state_res(conn);
 
     return conn->state == State::REQUEST;
 }
@@ -176,6 +179,10 @@ bool try_fill_buffer(std::unique_ptr<Connection> &conn) {
     // Process requests one by one
     while (try_one_request(conn)) {
     }
+
+    // Change the state to response
+    conn->state = State::RESPONSE;
+    state_res(conn);
 
     return conn->state == State::REQUEST;
 }
