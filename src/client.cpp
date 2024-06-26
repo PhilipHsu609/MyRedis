@@ -1,6 +1,7 @@
+#include "command.hpp"
 #include "utils.hpp"
 
-#include <fmt/ranges.h> // fmt::print
+#include <fmt/core.h> // fmt::print
 
 #include <array>       // std::array
 #include <cerrno>      // errno
@@ -13,25 +14,47 @@
 
 #include <netinet/in.h> // sockaddr_in, ntohs
 #include <sys/socket.h> // connect, socket
-#include <unistd.h>     // close, read, write
+#include <unistd.h>     // close
 
-std::int32_t send_req(int fd, const std::string &req) {
-    const std::size_t len = req.size();
-    std::vector<std::byte> buf(BUFSIZ);
-    std::memcpy(buf.data(), &len, COMMAND_SIZE);
-    std::memcpy(buf.data() + COMMAND_SIZE, req.data(), len);
-
-    return write_all(fd, buf, COMMAND_SIZE + len);
+int send_req(int fd, const std::vector<std::byte> &buf) {
+    return write_all(fd, buf, buf.size());
 }
 
-std::int32_t recv_res(int fd, std::vector<std::byte> &buf, std::size_t n) {
-    return read_all(fd, buf, n);
+int read_res(int fd) {
+    std::vector<std::byte> buf(COMMAND_SIZE);
+    if (read_all(fd, buf, COMMAND_SIZE) != 0) {
+        return -1;
+    }
+
+    std::size_t len = 0;
+    std::memcpy(&len, buf.data(), COMMAND_SIZE);
+
+    buf.resize(len);
+    if (read_all(fd, buf, len) != 0) {
+        return -1;
+    }
+
+    ResStatus status = ResStatus::ERR;
+    std::memcpy(&status, buf.data(), sizeof(ResStatus));
+    auto msg = to_view(buf.data() + sizeof(ResStatus), len - sizeof(ResStatus));
+
+    fmt::print("[{}] {}\n", to_string(status), msg);
+
+    return 0;
 }
 
-int main() {
+int main(int argc, char **argv) {
+    std::vector<std::string_view> args;
+
+    for (int i = 1; i < argc; i++) {
+        args.emplace_back(argv[i]);
+    }
+
+    auto req_buf = make_request(args);
+
     const int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd == -1) {
-        fmt::print(stderr, "socket failed: {}\n", std::strerror(errno));
+        LOG_ERROR(fmt::format("socket failed: {}", std::strerror(errno)));
         return 1;
     }
 
@@ -41,24 +64,19 @@ int main() {
     addr.sin_addr.s_addr = ntohl(INADDR_LOOPBACK);
 
     if (connect(fd, reinterpret_cast<const sockaddr *>(&addr), sizeof(addr)) != 0) {
-        fmt::print(stderr, "connect failed: {}\n", std::strerror(errno));
+        LOG_ERROR(fmt::format("connect failed: {}", std::strerror(errno)));
         return 1;
     }
 
-    const std::array<std::string, 3> reqs = {"ping", "pong", "end"};
-    for (const auto &req : reqs) {
-        send_req(fd, req);
+    if (send_req(fd, req_buf) != 0) {
+        goto DONE;
     }
 
-    for (const auto &req : reqs) {
-        std::vector<std::byte> buf(BUFSIZ);
-        recv_res(fd, buf, COMMAND_SIZE + req.size());
-        fmt::print("{}\n",
-                   std::string_view{reinterpret_cast<char *>(buf.data() + COMMAND_SIZE),
-                                    req.size()});
+    if (read_res(fd) != 0) {
+        goto DONE;
     }
 
+DONE:
     close(fd);
-
     return 0;
 }
