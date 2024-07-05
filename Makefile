@@ -6,16 +6,13 @@ CMAKE_COMPILER_FLAGS=-DCMAKE_CXX_COMPILER:STRING=clang++ -DCMAKE_C_COMPILER:STRI
 all: config build test
 
 config:
-	@cmake ${CMAKE_FLAGS} ${CMAKE_COMPILER_FLAGS} -S . -B build
+	cmake ${CMAKE_FLAGS} ${CMAKE_COMPILER_FLAGS} -S . -B build
 
-build: config
-	@cmake --build build
+build:
+	cmake --build build
 
 test:
-	@cmake ${CMAKE_FLAGS} ${CMAKE_COMPILER_FLAGS} -S test -B build/test
-	@cmake --build build/test
-	@cd build/test && ctest
+	cd build/test && ctest
 
 clean:
-	@rm -rf bin
-	@rm -rf build
+	rm -rf build

@@ -10,10 +10,10 @@ project(
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED on)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 # vcpkg dependencies
 find_package(fmt CONFIG REQUIRED)
+find_package(GTest CONFIG REQUIRED)
 
 # Define an interface library
 add_library(compile_flags_interface INTERFACE)
@@ -27,3 +27,6 @@ target_compile_options(compile_flags_interface INTERFACE
 )
 
 add_subdirectory(src)
+
+enable_testing()
+add_subdirectory(test)
