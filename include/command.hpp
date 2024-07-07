@@ -1,11 +1,9 @@
 #pragma once
 
-#include <cstddef>     // std::size_t, std::byte
-#include <cstdint>     // std::uint8_t
-#include <map>         // std::map
-#include <string>      // std::string
-#include <string_view> // std::string_view
-#include <vector>      // std::vector
+#include <cstddef> // std::size_t, std::byte
+#include <cstdint> // std::uint8_t
+#include <string_view>
+#include <vector>
 
 enum class Cmd : std::uint8_t { GET = 0, SET = 1, DEL = 2, UNKNOWN = 255 };
 enum class ResStatus : std::uint8_t { OK = 0, ERR = 1, NOT_FOUND = 2 };
@@ -20,9 +18,6 @@ struct Response {
     ResStatus status = ResStatus::ERR;
 };
 
-extern std::map<std::string, std::string> map;
-
-std::vector<std::byte> make_request(const std::vector<std::string_view> &args);
 int parse_request(const std::byte *request, std::size_t len, Request &req);
 Response do_request(const std::byte *req_vec, std::size_t len, std::byte *res_vec);
 

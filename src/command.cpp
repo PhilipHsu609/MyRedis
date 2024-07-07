@@ -1,16 +1,13 @@
 #include "command.hpp"
+#include "hashtable.hpp"
 #include "utils.hpp"
 
 #include <fmt/core.h> // fmt::print
 
-#include <cstdio>      // stderr
-#include <cstring>     // std::memcpy
-#include <map>         // std::map
-#include <string>      // std::string
-#include <string_view> // std::string_view
-
-// NOLINTNEXTLINE(fuchsia-statically-constructed-objects)
-std::map<std::string, std::string> map;
+#include <cstdio>  // stderr
+#include <cstring> // std::memcpy
+#include <string>
+#include <string_view>
 
 namespace {
 Response do_unknown(const Request &req, std::byte *res_vec) {
@@ -31,14 +28,14 @@ Response do_get(const Request &req, std::byte *res_vec) {
     Response res{};
 
     const std::string key(req.args[0]);
-    if (map.find(key) == map.end()) {
+    if (map.get(key) == nullptr) {
         LOG_INFO(fmt::format("GET Key: {} not found", key));
         res.status = ResStatus::NOT_FOUND;
         res.len = 0;
         return res;
     }
 
-    const std::string &value = map[key];
+    const std::string &value = map.get(key)->value;
     std::memcpy(res_vec, value.data(), value.size());
     res.status = ResStatus::OK;
     res.len = value.size();
@@ -54,7 +51,7 @@ Response do_set(const Request &req, std::byte *res_vec) {
     const std::string key(req.args[0]);
     const std::string value(req.args[1]);
 
-    map[key] = value;
+    map.set(key, value);
 
     std::string msg = fmt::format("Key: {}, Value: {}", key, value);
     std::memcpy(res_vec, msg.data(), msg.size());
@@ -70,14 +67,14 @@ Response do_del(const Request &req, std::byte *res_vec) {
     Response res{};
 
     const std::string key(req.args[0]);
-    if (map.find(key) == map.end()) {
+    if (map.get(key) == nullptr) {
         LOG_INFO(fmt::format("DEL Key: {} not found", key));
         res.status = ResStatus::NOT_FOUND;
         res.len = 0;
         return res;
     }
 
-    map.erase(key);
+    map.remove(key);
 
     std::string msg = fmt::format("Key: {} deleted", key);
     std::memcpy(res_vec, msg.data(), msg.size());
@@ -114,32 +111,6 @@ Response do_request(const std::byte *req_vec, std::size_t len, std::byte *res_ve
     }
 
     return res;
-}
-
-std::vector<std::byte> make_request(const std::vector<std::string_view> &args) {
-    std::size_t len = COMMAND_SIZE;
-    for (const auto &arg : args) {
-        len += COMMAND_SIZE + arg.size();
-    }
-
-    std::vector<std::byte> buf(COMMAND_SIZE + len);
-    std::size_t offset = 0;
-
-    std::size_t n = args.size();
-    std::memcpy(buf.data(), &len, COMMAND_SIZE);
-    offset += COMMAND_SIZE;
-    std::memcpy(buf.data() + offset, &n, COMMAND_SIZE);
-    offset += COMMAND_SIZE;
-
-    for (const auto &arg : args) {
-        n = arg.size();
-        std::memcpy(buf.data() + offset, &n, COMMAND_SIZE);
-        offset += COMMAND_SIZE;
-        std::memcpy(buf.data() + offset, arg.data(), arg.size());
-        offset += arg.size();
-    }
-
-    return buf;
 }
 
 int parse_request(const std::byte *request, std::size_t len, Request &req) {

@@ -1,8 +1,15 @@
 set(TEST_TARGET mytest)
 
-add_executable(
+add_executable(${TEST_TARGET})
+
+target_sources(
     ${TEST_TARGET}
-    test.cpp
+    PRIVATE
+    sys.cpp
+    utils.cpp
+    hashtable.cpp
+    ${PROJECT_SOURCE_DIR}/src/utils.cpp
+    ${PROJECT_SOURCE_DIR}/src/hashtable.cpp
 )
 
 target_include_directories(

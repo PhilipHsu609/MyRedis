@@ -5,13 +5,13 @@ add_executable(
     server.cpp
     utils.cpp
     command.cpp
+    hashtable.cpp
 )
 
 add_executable(
     client
     client.cpp
     utils.cpp
-    command.cpp
 )
 
 set(TARGETS server client)

@@ -1,4 +1,5 @@
 #include "command.hpp"
+#include "hashtable.hpp"
 #include "utils.hpp"
 
 #include <fmt/ranges.h> // fmt::print
@@ -20,6 +21,9 @@
 #include <sys/socket.h> // accept4, bind, listen, socket, sockaddr
 #include <sys/types.h>  // ssize_t
 #include <unistd.h>     // close, read, write, socklen_t
+
+// NOLINTNEXTLINE(fuchsia-statically-constructed-objects)
+HashTable map;
 
 enum class ConnState : std::uint8_t { REQUEST = 0, RESPONSE = 1, END = 2 };
 

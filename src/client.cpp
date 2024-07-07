@@ -16,6 +16,32 @@
 #include <sys/socket.h> // connect, socket
 #include <unistd.h>     // close
 
+std::vector<std::byte> make_request(const std::vector<std::string_view> &args) {
+    std::size_t len = COMMAND_SIZE;
+    for (const auto &arg : args) {
+        len += COMMAND_SIZE + arg.size();
+    }
+
+    std::vector<std::byte> buf(COMMAND_SIZE + len);
+    std::size_t offset = 0;
+
+    std::size_t n = args.size();
+    std::memcpy(buf.data(), &len, COMMAND_SIZE);
+    offset += COMMAND_SIZE;
+    std::memcpy(buf.data() + offset, &n, COMMAND_SIZE);
+    offset += COMMAND_SIZE;
+
+    for (const auto &arg : args) {
+        n = arg.size();
+        std::memcpy(buf.data() + offset, &n, COMMAND_SIZE);
+        offset += COMMAND_SIZE;
+        std::memcpy(buf.data() + offset, arg.data(), arg.size());
+        offset += arg.size();
+    }
+
+    return buf;
+}
+
 int send_req(int fd, const std::vector<std::byte> &buf) {
     return write_all(fd, buf, buf.size());
 }
