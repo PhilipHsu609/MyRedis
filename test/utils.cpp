@@ -3,9 +3,9 @@
 #include <fmt/core.h>
 #include <gtest/gtest.h>
 
-#include <cstddef> // std::byte
-#include <string>
-#include <string_view>
+#include <cstddef>     // std::byte
+#include <string>      // std::string
+#include <string_view> // std::string_view
 
 TEST(Utils, GetFilename) {
     const char *file = "/path/to/file.cpp";

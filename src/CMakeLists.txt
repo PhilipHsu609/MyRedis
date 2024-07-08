@@ -5,6 +5,7 @@ add_executable(
     server.cpp
     utils.cpp
     command.cpp
+    connection.cpp
     hashtable.cpp
 )
 

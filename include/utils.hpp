@@ -25,7 +25,8 @@ void print_msg(const char *file, int line, const char *func, std::FILE *f,
                std::string_view msg);
 
 constexpr std::uint16_t PORT = 1234;
-constexpr std::size_t COMMAND_SIZE = sizeof(std::uint32_t);
+constexpr std::size_t IOBUF_LEN = 8UL * 1024UL;
+constexpr std::size_t CMD_LEN_BYTES = sizeof(std::uint32_t);
 constexpr std::size_t MAX_ARGS = 3;
 constexpr int MAX_EVENTS = 10;
 
@@ -36,3 +37,5 @@ std::int32_t write_all(int fd, const std::vector<std::byte> &buf, std::size_t n)
 
 std::string_view to_view(const std::byte *buf, std::size_t n);
 std::string_view to_view(const std::byte *buf, std::size_t offset, std::size_t n);
+
+std::vector<std::byte> make_request(const std::vector<std::string_view> &args);

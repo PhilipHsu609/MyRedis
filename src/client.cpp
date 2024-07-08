@@ -1,14 +1,11 @@
-#include "command.hpp"
+#include "connection.hpp"
 #include "utils.hpp"
 
 #include <fmt/core.h> // fmt::print
 
-#include <array>       // std::array
 #include <cerrno>      // errno
 #include <cstddef>     // std::byte, std::size_t
-#include <cstdio>      // stderr, BUFSIZ
 #include <cstring>     // std::strerror
-#include <string>      // std::string
 #include <string_view> // std::string_view
 #include <vector>      // std::vector
 
@@ -16,44 +13,18 @@
 #include <sys/socket.h> // connect, socket
 #include <unistd.h>     // close
 
-std::vector<std::byte> make_request(const std::vector<std::string_view> &args) {
-    std::size_t len = COMMAND_SIZE;
-    for (const auto &arg : args) {
-        len += COMMAND_SIZE + arg.size();
-    }
-
-    std::vector<std::byte> buf(COMMAND_SIZE + len);
-    std::size_t offset = 0;
-
-    std::size_t n = args.size();
-    std::memcpy(buf.data(), &len, COMMAND_SIZE);
-    offset += COMMAND_SIZE;
-    std::memcpy(buf.data() + offset, &n, COMMAND_SIZE);
-    offset += COMMAND_SIZE;
-
-    for (const auto &arg : args) {
-        n = arg.size();
-        std::memcpy(buf.data() + offset, &n, COMMAND_SIZE);
-        offset += COMMAND_SIZE;
-        std::memcpy(buf.data() + offset, arg.data(), arg.size());
-        offset += arg.size();
-    }
-
-    return buf;
-}
-
 int send_req(int fd, const std::vector<std::byte> &buf) {
     return write_all(fd, buf, buf.size());
 }
 
 int read_res(int fd) {
-    std::vector<std::byte> buf(COMMAND_SIZE);
-    if (read_all(fd, buf, COMMAND_SIZE) != 0) {
+    std::vector<std::byte> buf(CMD_LEN_BYTES);
+    if (read_all(fd, buf, CMD_LEN_BYTES) != 0) {
         return -1;
     }
 
     std::size_t len = 0;
-    std::memcpy(&len, buf.data(), COMMAND_SIZE);
+    std::memcpy(&len, buf.data(), CMD_LEN_BYTES);
 
     buf.resize(len);
     if (read_all(fd, buf, len) != 0) {
@@ -62,7 +33,7 @@ int read_res(int fd) {
 
     ResStatus status = ResStatus::ERR;
     std::memcpy(&status, buf.data(), sizeof(ResStatus));
-    auto msg = to_view(buf.data() + sizeof(ResStatus), len - sizeof(ResStatus));
+    auto msg = to_view(buf.data(), sizeof(ResStatus), len - sizeof(ResStatus));
 
     fmt::print("[{}] {}\n", to_string(status), msg);
 

@@ -1,6 +1,7 @@
 #include "hashtable.hpp"
 
 #include <gtest/gtest.h>
+
 #include <string>  // std::to_string
 #include <utility> // std::move
 

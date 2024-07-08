@@ -5,8 +5,6 @@
 #include <cerrno>      // errno
 #include <cstddef>     // std::byte, std::size_t
 #include <cstdint>     // std::int32_t
-#include <cstdio>      // stderr
-#include <cstdlib>     // std::exit
 #include <cstring>     // std::strerror
 #include <string_view> // std::string_view
 #include <vector>      // std::vector
@@ -40,7 +38,7 @@ std::int32_t read_all(int fd, std::vector<std::byte> &buf, std::size_t n) {
     ssize_t offset = 0;
 
     while (remain > 0) {
-        const ssize_t m = read(fd, buf.data() + offset, remain);
+        const ssize_t m = read(fd, &buf[offset], remain);
         if (m <= 0) {
             if (m == -1) {
                 LOG_ERROR(fmt::format("read failed: {}", std::strerror(errno)));
@@ -59,7 +57,7 @@ std::int32_t write_all(int fd, const std::vector<std::byte> &buf, std::size_t n)
     ssize_t offset = 0;
 
     while (remain > 0) {
-        const ssize_t m = write(fd, buf.data() + offset, remain);
+        const ssize_t m = write(fd, &buf[offset], remain);
         if (m <= 0) {
             if (m == -1) {
                 LOG_ERROR(fmt::format("write failed: {}", std::strerror(errno)));
@@ -85,4 +83,30 @@ std::string_view to_view(const std::byte *buf, std::size_t offset, std::size_t n
         return {};
     }
     return std::string_view{reinterpret_cast<const char *>(buf + offset), n};
+}
+
+std::vector<std::byte> make_request(const std::vector<std::string_view> &args) {
+    std::size_t len = CMD_LEN_BYTES;
+    for (const auto &arg : args) {
+        len += CMD_LEN_BYTES + arg.size();
+    }
+
+    std::vector<std::byte> buf(CMD_LEN_BYTES + len);
+    std::size_t offset = 0;
+
+    std::size_t n = args.size();
+    std::memcpy(buf.data(), &len, CMD_LEN_BYTES);
+    offset += CMD_LEN_BYTES;
+    std::memcpy(&buf[offset], &n, CMD_LEN_BYTES);
+    offset += CMD_LEN_BYTES;
+
+    for (const auto &arg : args) {
+        n = arg.size();
+        std::memcpy(&buf[offset], &n, CMD_LEN_BYTES);
+        offset += CMD_LEN_BYTES;
+        std::memcpy(&buf[offset], arg.data(), arg.size());
+        offset += arg.size();
+    }
+
+    return buf;
 }

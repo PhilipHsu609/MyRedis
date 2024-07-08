@@ -1,20 +1,17 @@
 #include "command.hpp"
+#include "connection.hpp"
 #include "hashtable.hpp"
 #include "utils.hpp"
 
-#include <fmt/ranges.h> // fmt::print
+#include <fmt/ranges.h> // fmt::format
 
-#include <array>       // std::array
-#include <cerrno>      // errno
-#include <cstddef>     // std::byte, std::size_t
-#include <cstdint>     // std::uint8_t
-#include <cstdio>      // stderr, BUFSIZ
-#include <cstdlib>     // EXIT_FAILURE
-#include <cstring>     // std::strerror, std::memcpy, std::memmove
-#include <memory>      // std::unique_ptr
-#include <string>      // std::string
-#include <string_view> // std::string_view
-#include <vector>      // std::vector
+#include <array>   // std::array
+#include <cerrno>  // errno
+#include <cstddef> // std::size_t
+#include <cstdlib> // EXIT_FAILURE
+#include <cstring> // std::strerror, std::memcpy, std::memmove
+#include <memory>  // std::unique_ptr
+#include <vector>  // std::vector
 
 #include <netinet/in.h> // sockaddr_in
 #include <sys/epoll.h>  // epoll_event, epoll_create1, epoll_ctl
@@ -24,27 +21,6 @@
 
 // NOLINTNEXTLINE(fuchsia-statically-constructed-objects)
 HashTable map;
-
-enum class ConnState : std::uint8_t { REQUEST = 0, RESPONSE = 1, END = 2 };
-
-struct Connection {
-    int fd = -1;
-    // Current state of the connection
-    ConnState state = ConnState::REQUEST;
-    // Reading
-    std::size_t rbuf_size = 0;
-    std::size_t read_size = 0;
-    std::vector<std::byte> rbuf;
-    // Writing
-    std::size_t wbuf_size = 0;
-    std::size_t wbuf_sent = 0;
-    std::vector<std::byte> wbuf;
-
-    Connection(int fd) : fd{fd} {
-        rbuf.resize(BUFSIZ);
-        wbuf.resize(BUFSIZ);
-    }
-};
 
 void add_connection(std::vector<std::unique_ptr<Connection>> &connections, int fd) {
     if (connections.size() <= static_cast<std::size_t>(fd)) {
@@ -75,8 +51,8 @@ bool try_flush_buffer(std::unique_ptr<Connection> &conn) {
 
     do {
         // Write as much data as possible, up to the buffer size
-        const std::size_t remain = conn->wbuf_size - conn->wbuf_sent;
-        n = write(conn->fd, conn->wbuf.data() + conn->wbuf_sent, remain);
+        const std::size_t remain = conn->wbuf_size - conn->wbuf_pos;
+        n = write(conn->fd, &conn->wbuf[conn->wbuf_pos], remain);
     } while (n == -1 && errno == EINTR);
 
     if (n == -1 && errno == EAGAIN) {
@@ -90,12 +66,12 @@ bool try_flush_buffer(std::unique_ptr<Connection> &conn) {
         return false;
     }
 
-    conn->wbuf_sent += n;
+    conn->wbuf_pos += n;
 
-    if (conn->wbuf_sent == conn->wbuf_size) {
+    if (conn->wbuf_pos == conn->wbuf_size) {
         // Response was fully sent
         conn->wbuf_size = 0;
-        conn->wbuf_sent = 0;
+        conn->wbuf_pos = 0;
         conn->state = ConnState::REQUEST;
         return false;
     }
@@ -110,63 +86,51 @@ void state_res(std::unique_ptr<Connection> &conn) {
 }
 
 bool try_one_request(std::unique_ptr<Connection> &conn) {
-    if (conn->rbuf_size < conn->read_size + COMMAND_SIZE) {
-        // Not enough data in the buffer
-        return false;
-    }
-
-    std::size_t len = 0;
-    std::memcpy(&len, conn->rbuf.data() + conn->read_size, COMMAND_SIZE);
-
-    if (len > BUFSIZ) {
-        LOG_ERROR(fmt::format("Invalid length: {}", len));
-        conn->state = ConnState::END;
-        return false;
-    }
-
-    const std::size_t r_offset = conn->read_size + COMMAND_SIZE;
-    if (conn->rbuf_size < r_offset + len) {
-        // Not enough data in the buffer
-        return false;
-    }
-
-    LOG_INFO(fmt::format("Received: fd = {}, len = {}", conn->fd, len));
-
     // Process the request
-    const Response res = do_request(conn->rbuf.data() + r_offset, len,
-                                    // Skip some bytes for the response length and status
-                                    conn->wbuf.data() + COMMAND_SIZE + sizeof(ResStatus));
-    conn->read_size += COMMAND_SIZE + len; // Request had been processed
+    const ReqStatus status = do_request(conn);
 
-    if (res.status == ResStatus::ERR) {
-        LOG_ERROR("Process request failed, possibly wrong format");
+    if (status == ReqStatus::AGAIN) {
+        return false;
+    }
+
+    if (status == ReqStatus::ERR) {
         conn->state = ConnState::END;
         return false;
     }
 
-    // Flush the write buffer if it's full
-    if (conn->wbuf_size + COMMAND_SIZE + sizeof(ResStatus) + res.len >
-        conn->wbuf.size()) {
+    const auto &res = *conn->res;
+    auto &wbuf = conn->wbuf;
+
+    // Flush the write buffer if it is gonna be full
+    if (conn->wbuf_size + CMD_LEN_BYTES + sizeof(ResStatus) + res.msg.size() >
+        IOBUF_LEN) {
         conn->state = ConnState::RESPONSE;
         state_res(conn);
     }
 
-    len = sizeof(ResStatus) + res.len; // Response status + data length
-    std::memcpy(conn->wbuf.data() + conn->wbuf_size, &len, COMMAND_SIZE);
-    std::memcpy(conn->wbuf.data() + conn->wbuf_size + COMMAND_SIZE, &res.status,
-                sizeof(ResStatus));
-    conn->wbuf_size += COMMAND_SIZE + len;
+    // Add the response to wbuf
+    const std::size_t len = sizeof(ResStatus) + res.msg.size();
+    std::memcpy(&wbuf[conn->wbuf_size], &len, CMD_LEN_BYTES);
+    conn->wbuf_size += CMD_LEN_BYTES;
+
+    std::memcpy(&wbuf[conn->wbuf_size], &res.status, sizeof(ResStatus));
+    conn->wbuf_size += sizeof(ResStatus);
+
+    std::memcpy(&wbuf[conn->wbuf_size], res.msg.data(), res.msg.size());
+    conn->wbuf_size += res.msg.size();
 
     return conn->state == ConnState::REQUEST;
 }
 
 bool try_fill_buffer(std::unique_ptr<Connection> &conn) {
-    if (conn->read_size > 0) {
+    auto &rbuf = conn->rbuf;
+
+    if (conn->rbuf_pos > 0) {
         // Remove handled requests from the buffer
-        const std::size_t remain = conn->rbuf_size - conn->read_size;
-        std::memmove(conn->rbuf.data(), conn->rbuf.data() + conn->read_size, remain);
+        const std::size_t remain = conn->rbuf_size - conn->rbuf_pos;
+        std::memmove(rbuf.data(), &rbuf[conn->rbuf_pos], remain);
         conn->rbuf_size = remain;
-        conn->read_size = 0;
+        conn->rbuf_pos = 0;
     }
 
     ssize_t n = 0;
@@ -174,7 +138,7 @@ bool try_fill_buffer(std::unique_ptr<Connection> &conn) {
     do {
         // Read as much data as possible, up to the buffer size
         const std::size_t remain = conn->rbuf.size() - conn->rbuf_size;
-        n = read(conn->fd, conn->rbuf.data() + conn->rbuf_size, remain);
+        n = read(conn->fd, &rbuf[conn->rbuf_size], remain);
     } while (n == -1 && errno == EINTR); // Interrupt occurred before read
 
     if (n == -1 && errno == EAGAIN) {
