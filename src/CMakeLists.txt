@@ -7,12 +7,14 @@ add_executable(
     command.cpp
     connection.cpp
     hashtable.cpp
+    location.cpp
 )
 
 add_executable(
     client
     client.cpp
     utils.cpp
+    location.cpp
 )
 
 set(TARGETS server client)

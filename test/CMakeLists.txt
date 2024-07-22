@@ -9,6 +9,7 @@ target_sources(
     utils.cpp
     hashtable.cpp
     ${PROJECT_SOURCE_DIR}/src/utils.cpp
+    ${PROJECT_SOURCE_DIR}/src/location.cpp
     ${PROJECT_SOURCE_DIR}/src/hashtable.cpp
 )
 

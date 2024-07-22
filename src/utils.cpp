@@ -1,4 +1,5 @@
 #include "utils.hpp"
+#include "location.hpp"
 
 #include <fmt/ranges.h> // fmt::print
 
@@ -110,3 +111,31 @@ std::vector<std::byte> make_request(const std::vector<std::string_view> &args) {
 
     return buf;
 }
+
+namespace Logger {
+Level level;
+
+std::string_view to_string(Level level) {
+    switch (level) {
+    case Level::DEBUG:
+        return "DEBUG";
+    case Level::INFO:
+        return "INFO";
+    case Level::WARNING:
+        return "WARNING";
+    case Level::ERROR:
+        return "ERROR";
+    case Level::DISABLED:
+        return "DISABLED";
+    }
+}
+
+void set_level(Level level) { Logger::level = level; }
+
+void log_write(Level level, const std::string &msg, const Location &loc) {
+    if (level < Logger::level) {
+        return;
+    }
+    fmt::print("[{}][{}]: {}\n", to_string(level), loc.to_string(), msg);
+}
+} // namespace Logger
