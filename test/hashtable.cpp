@@ -2,8 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include <string>  // std::to_string
-#include <utility> // std::move
+#include <string> // std::to_string
 
 TEST(HashTable, BasicOperations) {
     HashTable ht;

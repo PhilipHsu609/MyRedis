@@ -108,6 +108,10 @@ CheckOptions:
     value: lower_case
   - key: readability-identifier-naming.IgnoreMainLikeFunctions
     value: 1
+  - key: hicpp-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted
+    value: true
+  - key: cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted
+    value: true
 
 WarningsAsErrors: "*"
 

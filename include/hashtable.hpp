@@ -3,8 +3,7 @@
 #include <array>      // std::array
 #include <cstdint>    // std::uint64_t
 #include <functional> // std::function
-#include <string>     // std::string
-#include <utility>    // std::hash
+#include <string>     // std::string, std::hash<std::string>
 
 class HashTable;
 extern HashTable map;
