@@ -97,27 +97,6 @@ bool try_one_request(std::unique_ptr<Connection> &conn) {
         return false;
     }
 
-    const auto &res = *conn->res;
-    auto &wbuf = conn->wbuf;
-
-    // Flush the write buffer if it is gonna be full
-    if (conn->wbuf_size + CMD_LEN_BYTES + sizeof(ResStatus) + res.msg.size() >
-        IOBUF_LEN) {
-        conn->state = ConnState::RESPONSE;
-        state_res(conn);
-    }
-
-    // Add the response to wbuf
-    const std::size_t len = sizeof(ResStatus) + res.msg.size();
-    std::memcpy(&wbuf[conn->wbuf_size], &len, CMD_LEN_BYTES);
-    conn->wbuf_size += CMD_LEN_BYTES;
-
-    std::memcpy(&wbuf[conn->wbuf_size], &res.status, sizeof(ResStatus));
-    conn->wbuf_size += sizeof(ResStatus);
-
-    std::memcpy(&wbuf[conn->wbuf_size], res.msg.data(), res.msg.size());
-    conn->wbuf_size += res.msg.size();
-
     return conn->state == ConnState::REQUEST;
 }
 

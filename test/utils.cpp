@@ -15,7 +15,7 @@ TEST(Utils, GetFilename) {
 
 TEST(Utils, ToView) {
     std::vector<std::byte> buf = {std::byte{'y'}, std::byte{'e'}, std::byte{'s'}};
-    std::string_view view = to_view(buf.data(), buf.size());
+    std::string_view view = to_view(buf, buf.size());
     EXPECT_EQ(view.size(), buf.size());
     EXPECT_EQ(view[0], 'y');
     EXPECT_EQ(view[1], 'e');
@@ -28,7 +28,7 @@ TEST(Utils, ReadAll) {
     std::size_t n = buf.size();
 
     auto ret = read_all(fd, buf, n);
-    std::string msg{to_view(buf.data(), n)};
+    std::string msg{to_view(buf, n)};
 
     EXPECT_STREQ(msg.c_str(), "data in the buffer\n");
     EXPECT_EQ(ret, -1);

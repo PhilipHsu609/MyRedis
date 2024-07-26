@@ -28,7 +28,7 @@ ReqStatus parse_request(std::unique_ptr<Connection> &conn) {
             return ReqStatus::ERR;
         }
 
-        conn->req->args.emplace_back(to_view(conn->rbuf.data(), conn->rbuf_pos, str_len));
+        conn->req->args.emplace_back(to_view(conn->rbuf, conn->rbuf_pos, str_len));
         conn->rbuf_pos += str_len;
     }
 
@@ -89,4 +89,34 @@ ReqStatus do_request(std::unique_ptr<Connection> &conn) {
     }
 
     return ReqStatus::OK;
+}
+
+void add_reply(std::unique_ptr<Connection> &conn, const std::vector<std::byte> &msg,
+               ObjType type) {
+    const std::size_t len = sizeof(ObjType) + CMD_LEN_BYTES + msg.size();
+
+    // TODO(_): Handle the case when wbuf is full
+
+    // Protocol header
+    std::memcpy(&conn->wbuf[conn->wbuf_size], &len, CMD_LEN_BYTES);
+    conn->wbuf_size += CMD_LEN_BYTES;
+
+    // Protocol body
+    add_reply_raw(conn, msg, type);
+}
+
+void add_reply_raw(std::unique_ptr<Connection> &conn, const std::vector<std::byte> &msg,
+                   ObjType type) {
+    const std::size_t msg_len = msg.size();
+
+    // Response header
+    std::memcpy(&conn->wbuf[conn->wbuf_size], &type, sizeof(ObjType));
+    conn->wbuf_size += sizeof(ObjType);
+
+    // Response body
+    std::memcpy(&conn->wbuf[conn->wbuf_size], &msg_len, CMD_LEN_BYTES);
+    conn->wbuf_size += CMD_LEN_BYTES;
+
+    std::memcpy(&conn->wbuf[conn->wbuf_size], msg.data(), msg_len);
+    conn->wbuf_size += msg_len;
 }

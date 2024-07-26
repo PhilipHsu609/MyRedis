@@ -3,6 +3,7 @@
 
 #include <fmt/ranges.h> // fmt::print
 
+#include <algorithm>   // std::transform
 #include <cerrno>      // errno
 #include <cstddef>     // std::byte, std::size_t
 #include <cstdint>     // std::int32_t
@@ -72,18 +73,26 @@ std::int32_t write_all(int fd, const std::vector<std::byte> &buf, std::size_t n)
     return 0;
 }
 
-std::string_view to_view(const std::byte *buf, std::size_t n) {
-    if (buf == nullptr) {
+std::string_view to_view(const std::vector<std::byte> &buf, std::size_t n) {
+    if (buf.empty()) {
         return {};
     }
-    return std::string_view{reinterpret_cast<const char *>(buf), n};
+    return std::string_view{reinterpret_cast<const char *>(buf.data()), n};
 }
 
-std::string_view to_view(const std::byte *buf, std::size_t offset, std::size_t n) {
-    if (buf == nullptr) {
+std::string_view to_view(const std::vector<std::byte> &buf, std::size_t offset,
+                         std::size_t n) {
+    if (buf.empty()) {
         return {};
     }
-    return std::string_view{reinterpret_cast<const char *>(buf + offset), n};
+    return std::string_view{reinterpret_cast<const char *>(buf.data() + offset), n};
+}
+
+std::vector<std::byte> to_bytes(std::string_view sv) {
+    std::vector<std::byte> buf(sv.size());
+    std::transform(sv.begin(), sv.end(), buf.begin(),
+                   [](char c) { return static_cast<std::byte>(c); });
+    return buf;
 }
 
 std::vector<std::byte> make_request(const std::vector<std::string_view> &args) {

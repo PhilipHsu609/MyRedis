@@ -37,8 +37,10 @@ void set_nonblocking(int fd);
 std::int32_t read_all(int fd, std::vector<std::byte> &buf, std::size_t n);
 std::int32_t write_all(int fd, const std::vector<std::byte> &buf, std::size_t n);
 
-std::string_view to_view(const std::byte *buf, std::size_t n);
-std::string_view to_view(const std::byte *buf, std::size_t offset, std::size_t n);
+std::string_view to_view(const std::vector<std::byte> &buf, std::size_t n);
+std::string_view to_view(const std::vector<std::byte> &buf, std::size_t offset,
+                         std::size_t n);
+std::vector<std::byte> to_bytes(std::string_view sv);
 
 std::vector<std::byte> make_request(const std::vector<std::string_view> &args);
 

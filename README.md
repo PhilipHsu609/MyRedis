@@ -27,11 +27,26 @@ Byte-based protocol. Assume all integers are in little-endian.
 ### Response
 
 ```text
-| status | message |
+| content |
 ```
 
-- `status` is a 1-byte integer representing the status of the response.
-- `message` is a string.
+- `content` is a serialized object.
+
+### Object Serialization
+
+```text
+| type | len | content |
+```
+
+- `type` is a 1-byte character representing the type of the content.
+  - It can be either array, string ,integer or null.
+- `len` is a 4-byte integer representing the length of `content`.
+  - If the type is array, it should be the number of objects.
+  - If the type is integer, it should be the minimum number of bytes to represent the integer.
+  - If the type is null, it should be 0.
+- `content` is the actual content.
+  - If the type is array, it should be a list of objects.
+  - If the type is null, it should be empty.
 
 ## Status
 
