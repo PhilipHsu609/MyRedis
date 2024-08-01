@@ -58,3 +58,37 @@ void do_del(std::unique_ptr<Connection> &conn) {
     std::vector<std::byte> buf{std::byte(1)};
     add_reply(conn, buf, ObjType::INT);
 }
+
+void do_keys(std::unique_ptr<Connection> &conn) {
+    if (map.is_empty()) {
+        add_reply(conn, {}, ObjType::NIL);
+        return;
+    }
+
+    const std::vector<std::string> keys = map.keys();
+
+    LOG_INFO(fmt::format("KEYS: {}...", keys[0]));
+
+    auto *reserved = &conn->wbuf[conn->wbuf_size];
+    // Reserve space for the protocol header and the response header
+    conn->wbuf_size += CMD_LEN_BYTES + sizeof(ObjType) + CMD_LEN_BYTES;
+
+    std::size_t len = 0;
+    for (const auto &key : keys) {
+        add_reply_raw(conn, to_bytes(key));
+        len += key.size();
+        LOG_DEBUG(fmt::format("key: {}, len: {}", key, len));
+    }
+
+    const ObjType type = ObjType::ARR;
+    const std::size_t nelems = keys.size();
+    len += (sizeof(ObjType) + CMD_LEN_BYTES) * (nelems + 1);
+
+    LOG_DEBUG(fmt::format("KEYS: len = {}, nelems = {}", len, nelems));
+
+    // Protocol header
+    std::memcpy(reserved, &len, CMD_LEN_BYTES);
+    // Response header
+    std::memcpy(reserved + CMD_LEN_BYTES, &type, sizeof(ObjType));
+    std::memcpy(reserved + CMD_LEN_BYTES + sizeof(ObjType), &nelems, CMD_LEN_BYTES);
+}

@@ -8,7 +8,8 @@
 #include <string_view> // std::string_view
 #include <vector>      // std::vector
 
-enum class Cmd : std::uint8_t { GET, SET, DEL, NONE };
+enum class Cmd : std::uint8_t { GET, SET, DEL, KEYS, NONE };
+
 enum class ReqStatus : std::uint8_t { OK, ERR, AGAIN };
 enum class ConnState : std::uint8_t { REQUEST, RESPONSE, END };
 enum class ObjType : std::uint8_t { NIL = '_', INT = ':', STR = '$', ARR = '*' };
@@ -48,6 +49,8 @@ constexpr std::string_view to_string(Cmd cmd) {
         return "SET";
     case Cmd::DEL:
         return "DEL";
+    case Cmd::KEYS:
+        return "KEYS";
     case Cmd::NONE:
         return "NONE";
     }

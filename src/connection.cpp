@@ -40,6 +40,8 @@ ReqStatus parse_request(std::unique_ptr<Connection> &conn) {
         conn->req->cmd = Cmd::SET;
     } else if (cmd_str == "DEL") {
         conn->req->cmd = Cmd::DEL;
+    } else if (cmd_str == "KEYS") {
+        conn->req->cmd = Cmd::KEYS;
     } else {
         conn->req->cmd = Cmd::NONE;
     }
@@ -82,6 +84,9 @@ ReqStatus do_request(std::unique_ptr<Connection> &conn) {
         break;
     case Cmd::DEL:
         do_del(conn);
+        break;
+    case Cmd::KEYS:
+        do_keys(conn);
         break;
     case Cmd::NONE:
         do_unknown(conn);
