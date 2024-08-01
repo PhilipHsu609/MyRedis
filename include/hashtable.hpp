@@ -44,6 +44,7 @@ class HashTable {
     void set(std::string key, std::string value);
     HashNode *get(const std::string &key);
     bool remove(const std::string &key);
+    std::vector<std::string> keys();
 
     bool is_empty() const;
     HTState state(std::size_t htidx) const;

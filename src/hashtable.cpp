@@ -141,6 +141,21 @@ bool HashTable::remove(const std::string &key) {
     return false;
 }
 
+std::vector<std::string> HashTable::keys() {
+    std::vector<std::string> buf;
+    for (std::size_t htidx = 0; htidx <= 1; htidx++) {
+        for (std::size_t idx = 0; idx < HT_SIZE(size_exp[htidx]); idx++) {
+            HashNode *node = table[htidx][idx];
+            while (node != nullptr) {
+                buf.push_back(node->key);
+                node = node->next;
+            }
+        }
+    }
+
+    return buf;
+}
+
 bool HashTable::is_empty() const { return used[0] + used[1] == 0; }
 
 HTState HashTable::state(std::size_t htidx) const {
