@@ -12,7 +12,7 @@
 #include <sys/socket.h> // connect, socket
 #include <unistd.h>     // close
 
-void print_obj(const std::byte *buf, std::size_t len, char type) {
+void print_obj(const std::byte **buf, std::size_t len, char type) {
     if (type == '_') {
         fmt::print("(nil)\n");
         return;
@@ -20,30 +20,35 @@ void print_obj(const std::byte *buf, std::size_t len, char type) {
 
     if (type == ':') {
         long long value = 0;
-        std::memcpy(&value, buf, len);
+        std::memcpy(&value, *buf, len);
         fmt::print("(integer) {}\n", value);
+        *buf += len;
         return;
     }
 
     if (type == '$') {
-        std::string_view sv{reinterpret_cast<const char *>(buf), len};
+        std::string_view sv{reinterpret_cast<const char *>(*buf), len};
         fmt::print("\"{}\"\n", sv);
+        *buf += len;
         return;
     }
 }
 
-void print_arr(const std::byte *buf, std::size_t n) {
+void print_arr(const std::byte **buf, std::size_t n) {
     for (std::size_t i = 0; i < n; i++) {
         // TODO(_): handle nested arrays
 
         char type = ' ';
-        std::memcpy(&type, buf, 1);
+        std::memcpy(&type, *buf, 1);
         std::size_t len = 0;
-        std::memcpy(&len, &buf[1], CMD_LEN_BYTES);
+        std::memcpy(&len, &(*buf)[1], CMD_LEN_BYTES);
+        *buf += 1 + CMD_LEN_BYTES;
 
-        print_obj(buf, len, type);
-
-        buf += 1 + CMD_LEN_BYTES;
+        if (type == '*') {
+            print_arr(buf, len);
+        } else {
+            print_obj(buf, len, type);
+        }
     }
 }
 
@@ -52,15 +57,14 @@ void print_response(const std::byte *buf, std::size_t len) {
 
     std::memcpy(&type, buf, 1);
     std::memcpy(&len, &buf[1], CMD_LEN_BYTES);
-
     buf += 1 + CMD_LEN_BYTES;
 
     if (type == '*') {
-        print_arr(buf, len);
+        print_arr(&buf, len);
         return;
     }
 
-    print_obj(buf, len, type);
+    print_obj(&buf, len, type);
 }
 
 int send_req(int fd, const std::vector<std::byte> &buf) {
