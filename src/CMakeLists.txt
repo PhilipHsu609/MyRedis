@@ -1,5 +1,3 @@
-find_path(DBG_MACRO_INCLUDE_DIRS "dbg.h")
-
 add_executable(
     server
     server.cpp
@@ -23,8 +21,7 @@ foreach(TARGET ${TARGETS})
     target_include_directories(
         ${TARGET}
         PRIVATE
-        ${PROJECT_SOURCE_DIR}/include
-        ${DBG_MACRO_INCLUDE_DIRS})
+        ${PROJECT_SOURCE_DIR}/include)
     target_link_libraries(
         ${TARGET}
         PRIVATE
